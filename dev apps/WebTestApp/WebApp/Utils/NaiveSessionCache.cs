@@ -25,14 +25,10 @@
 //
 //------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 
-namespace WebApp
+namespace WebApp.Utils
 {
     public class NaiveSessionCache : TokenCache
     {
@@ -46,8 +42,8 @@ namespace WebApp
             UserObjectId = userId;
             CacheId = UserObjectId + "_TokenCache";
             Session = session;
-            this.AfterAccess = AfterAccessNotification;
-            this.BeforeAccess = BeforeAccessNotification;
+            AfterAccess = AfterAccessNotification;
+            BeforeAccess = BeforeAccessNotification;
             Load();
         }
 
@@ -55,7 +51,7 @@ namespace WebApp
         {
             lock (FileLock)
             {
-                this.Deserialize(Session.Get(CacheId));
+                Deserialize(Session.Get(CacheId));
             }
         }
 
@@ -64,9 +60,9 @@ namespace WebApp
             lock (FileLock)
             {
                 // reflect changes in the persistent store
-                Session.Set(CacheId, this.Serialize());
+                Session.Set(CacheId, Serialize());
                 // once the write operation took place, restore the HasStateChanged bit to false
-                this.HasStateChanged = false;
+                HasStateChanged = false;
             }
         }
 
@@ -94,7 +90,7 @@ namespace WebApp
         void AfterAccessNotification(TokenCacheNotificationArgs args)
         {
             // if the access operation resulted in a cache update
-            if (this.HasStateChanged)
+            if (HasStateChanged)
             {
                 Persist();
             }

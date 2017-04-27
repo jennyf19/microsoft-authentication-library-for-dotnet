@@ -37,8 +37,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Newtonsoft.Json;
 using WebApp.Models;
-
-// For more information on enabling MVC for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
+using WebApp.Utils;
 
 namespace WebApp.Controllers
 {
@@ -50,7 +49,6 @@ namespace WebApp.Controllers
         // GET: /<controller>/
         public async Task<IActionResult> Index()
         {
-            AuthenticationResult result = null;
             List<TodoItem> itemList = new List<TodoItem>();
 
             try
@@ -58,7 +56,7 @@ namespace WebApp.Controllers
                 string userObjectID = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
                 AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectID, HttpContext.Session));
                 ClientCredential credential = new ClientCredential(Startup.ClientId, Startup.ClientSecret);
-                result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectID, UserIdentifierType.UniqueId));
+                AuthenticationResult result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectID, UserIdentifierType.UniqueId));
 
                 //
                 // Retrieve the user's To Do List.
@@ -87,27 +85,24 @@ namespace WebApp.Controllers
 
                     return View(itemList);
                 }
-                else
+                //
+                // If the call failed with access denied, then drop the current access token from the cache, 
+                //     and show the user an error indicating they might need to sign-in again.
+                //
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    //
-                    // If the call failed with access denied, then drop the current access token from the cache, 
-                    //     and show the user an error indicating they might need to sign-in again.
-                    //
-                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                    {
-                        var todoTokens = authContext.TokenCache.ReadItems().Where(a => a.Resource == Startup.TodoListResourceId);
-                        foreach (TokenCacheItem tci in todoTokens)
-                            authContext.TokenCache.DeleteItem(tci);
+                    var todoTokens = authContext.TokenCache.ReadItems().Where(a => a.Resource == Startup.TodoListResourceId);
+                    foreach (TokenCacheItem tci in todoTokens)
+                        authContext.TokenCache.DeleteItem(tci);
 
-                        ViewBag.ErrorMessage = "UnexpectedError";
-                        TodoItem newItem = new TodoItem();
-                        newItem.Title = "(No items in list)";
-                        itemList.Add(newItem);
-                        return View(itemList);
-                    }
+                    ViewBag.ErrorMessage = "UnexpectedError";
+                    TodoItem newItem = new TodoItem();
+                    newItem.Title = "(No items in list)";
+                    itemList.Add(newItem);
+                    return View(itemList);
                 }
             }
-            catch (Exception ee)
+            catch (Exception)
             {
                 if (HttpContext.Request.Query["reauth"] == "True")
                 {
@@ -128,15 +123,11 @@ namespace WebApp.Controllers
                 ViewBag.ErrorMessage = "AuthorizationRequired";
                 return View(itemList);
             }
-
-
             //
             // If the call failed for any other reason, show the user an error.
             //
             return View("Error");
         }
-
-
 
         [HttpPost]
         public async Task<ActionResult> Index(string item)
@@ -146,7 +137,6 @@ namespace WebApp.Controllers
                 //
                 // Retrieve the user's tenantID and access token since they are parameters used to call the To Do service.
                 //
-                AuthenticationResult result = null;
                 List<TodoItem> itemList = new List<TodoItem>();
 
                 try
@@ -154,7 +144,7 @@ namespace WebApp.Controllers
                     string userObjectID = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
                     AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectID, HttpContext.Session));
                     ClientCredential credential = new ClientCredential(Startup.ClientId, Startup.ClientSecret);
-                    result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectID, UserIdentifierType.UniqueId));
+                    AuthenticationResult result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectID, UserIdentifierType.UniqueId));
 
                     // Forms encode todo item, to POST to the todo list web api.
                     HttpContent content = new StringContent(JsonConvert.SerializeObject(new { Title = item }), System.Text.Encoding.UTF8, "application/json");
@@ -196,7 +186,7 @@ namespace WebApp.Controllers
                     }
 
                 }
-                catch (Exception ee)
+                catch (Exception)
                 {
                     //
                     // The user needs to re-authorize.  Show them a message to that effect.
@@ -206,13 +196,11 @@ namespace WebApp.Controllers
                     itemList.Add(newItem);
                     ViewBag.ErrorMessage = "AuthorizationRequired";
                     return View(itemList);
-
                 }
                 //
                 // If the call failed for any other reason, show the user an error.
                 //
                 return View("Error");
-
             }
 
             return View("Error");
