@@ -33,15 +33,13 @@ namespace WebApp.Utils
     public class NaiveSessionCache : TokenCache
     {
         private static readonly object FileLock = new object();
-        string UserObjectId = string.Empty;
-        string CacheId = string.Empty;
-        ISession Session = null;
+        private readonly string _cacheId;
+        private readonly ISession _session;
 
         public NaiveSessionCache(string userId, ISession session)
         {
-            UserObjectId = userId;
-            CacheId = UserObjectId + "_TokenCache";
-            Session = session;
+            _cacheId = userId + "_TokenCache";
+            _session = session;
             AfterAccess = AfterAccessNotification;
             BeforeAccess = BeforeAccessNotification;
             Load();
@@ -51,7 +49,7 @@ namespace WebApp.Utils
         {
             lock (FileLock)
             {
-                Deserialize(Session.Get(CacheId));
+                Deserialize(_session.Get(_cacheId));
             }
         }
 
@@ -60,7 +58,7 @@ namespace WebApp.Utils
             lock (FileLock)
             {
                 // reflect changes in the persistent store
-                Session.Set(CacheId, Serialize());
+                _session.Set(_cacheId, Serialize());
                 // once the write operation took place, restore the HasStateChanged bit to false
                 HasStateChanged = false;
             }
@@ -70,7 +68,10 @@ namespace WebApp.Utils
         public override void Clear()
         {
             base.Clear();
-            Session.Remove(CacheId);
+            lock (FileLock)
+            {
+                _session.Remove(_cacheId);
+            }
         }
 
         public override void DeleteItem(TokenCacheItem item)
@@ -81,13 +82,13 @@ namespace WebApp.Utils
 
         // Triggered right before ADAL needs to access the cache.
         // Reload the cache from the persistent store in case it changed since the last access.
-        void BeforeAccessNotification(TokenCacheNotificationArgs args)
+        private void BeforeAccessNotification(TokenCacheNotificationArgs args)
         {
             Load();
         }
 
         // Triggered right after ADAL accessed the cache.
-        void AfterAccessNotification(TokenCacheNotificationArgs args)
+        private void AfterAccessNotification(TokenCacheNotificationArgs args)
         {
             // if the access operation resulted in a cache update
             if (HasStateChanged)

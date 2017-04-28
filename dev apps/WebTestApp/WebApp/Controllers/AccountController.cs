@@ -53,8 +53,8 @@ namespace WebApp.Controllers
         {
             if (HttpContext.User.Identity.IsAuthenticated)
             {
-                string userObjectID = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
-                AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectID, HttpContext.Session));
+                string userObjectId = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
+                AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectId, HttpContext.Session));
                 authContext.TokenCache.Clear();
 
                 await HttpContext.Authentication.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);

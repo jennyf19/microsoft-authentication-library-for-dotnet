@@ -38,6 +38,7 @@ using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Newtonsoft.Json;
 using WebApp.Models;
 using WebApp.Utils;
+//using Microsoft.Identity.Client;
 
 namespace WebApp.Controllers
 {
@@ -53,10 +54,10 @@ namespace WebApp.Controllers
 
             try
             {
-                string userObjectID = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
-                AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectID, HttpContext.Session));
+                string userObjectId = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
+                AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectId, HttpContext.Session));
                 ClientCredential credential = new ClientCredential(Startup.ClientId, Startup.ClientSecret);
-                AuthenticationResult result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectID, UserIdentifierType.UniqueId));
+                AuthenticationResult result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectId, UserIdentifierType.UniqueId));
 
                 //
                 // Retrieve the user's To Do List.
@@ -71,15 +72,16 @@ namespace WebApp.Controllers
                 //
                 if (response.IsSuccessStatusCode)
                 {
-                    List<Dictionary<String, String>> responseElements = new List<Dictionary<String, String>>();
                     JsonSerializerSettings settings = new JsonSerializerSettings();
                     String responseString = await response.Content.ReadAsStringAsync();
-                    responseElements = JsonConvert.DeserializeObject<List<Dictionary<String, String>>>(responseString, settings);
+                    var responseElements = JsonConvert.DeserializeObject<List<Dictionary<String, String>>>(responseString, settings);
                     foreach (Dictionary<String, String> responseElement in responseElements)
                     {
-                        TodoItem newItem = new TodoItem();
-                        newItem.Title = responseElement["title"];
-                        newItem.Owner = responseElement["owner"];
+                        TodoItem newItem = new TodoItem
+                        {
+                            Title = responseElement["title"],
+                            Owner = responseElement["owner"]
+                        };
                         itemList.Add(newItem);
                     }
 
@@ -96,8 +98,7 @@ namespace WebApp.Controllers
                         authContext.TokenCache.DeleteItem(tci);
 
                     ViewBag.ErrorMessage = "UnexpectedError";
-                    TodoItem newItem = new TodoItem();
-                    newItem.Title = "(No items in list)";
+                    TodoItem newItem = new TodoItem {Title = "(No items in list)"};
                     itemList.Add(newItem);
                     return View(itemList);
                 }
@@ -117,8 +118,7 @@ namespace WebApp.Controllers
                 //
                 // The user needs to re-authorize.  Show them a message to that effect.
                 //
-                TodoItem newItem = new TodoItem();
-                newItem.Title = "(Sign-in required to view to do list.)";
+                TodoItem newItem = new TodoItem {Title = "(Sign-in required to view to do list.)"};
                 itemList.Add(newItem);
                 ViewBag.ErrorMessage = "AuthorizationRequired";
                 return View(itemList);
@@ -141,10 +141,10 @@ namespace WebApp.Controllers
 
                 try
                 {
-                    string userObjectID = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
-                    AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectID, HttpContext.Session));
+                    string userObjectId = (User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier"))?.Value;
+                    AuthenticationContext authContext = new AuthenticationContext(Startup.Authority, new NaiveSessionCache(userObjectId, HttpContext.Session));
                     ClientCredential credential = new ClientCredential(Startup.ClientId, Startup.ClientSecret);
-                    AuthenticationResult result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectID, UserIdentifierType.UniqueId));
+                    AuthenticationResult result = await authContext.AcquireTokenSilentAsync(Startup.TodoListResourceId, credential, new UserIdentifier(userObjectId, UserIdentifierType.UniqueId));
 
                     // Forms encode todo item, to POST to the todo list web api.
                     HttpContent content = new StringContent(JsonConvert.SerializeObject(new { Title = item }), System.Text.Encoding.UTF8, "application/json");
@@ -165,34 +165,28 @@ namespace WebApp.Controllers
                     {
                         return RedirectToAction("Index");
                     }
-                    else
+                    //
+                    // If the call failed with access denied, then drop the current access token from the cache, 
+                    //     and show the user an error indicating they might need to sign-in again.
+                    //
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                     {
-                        //
-                        // If the call failed with access denied, then drop the current access token from the cache, 
-                        //     and show the user an error indicating they might need to sign-in again.
-                        //
-                        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                        {
-                            var todoTokens = authContext.TokenCache.ReadItems().Where(a => a.Resource == Startup.TodoListResourceId);
-                            foreach (TokenCacheItem tci in todoTokens)
-                                authContext.TokenCache.DeleteItem(tci);
+                        var todoTokens = authContext.TokenCache.ReadItems().Where(a => a.Resource == Startup.TodoListResourceId);
+                        foreach (TokenCacheItem tci in todoTokens)
+                            authContext.TokenCache.DeleteItem(tci);
 
-                            ViewBag.ErrorMessage = "UnexpectedError";
-                            TodoItem newItem = new TodoItem();
-                            newItem.Title = "(No items in list)";
-                            itemList.Add(newItem);
-                            return View(newItem);
-                        }
+                        ViewBag.ErrorMessage = "UnexpectedError";
+                        TodoItem newItem = new TodoItem {Title = "(No items in list)"};
+                        itemList.Add(newItem);
+                        return View();
                     }
-
                 }
                 catch (Exception)
                 {
                     //
                     // The user needs to re-authorize.  Show them a message to that effect.
                     //
-                    TodoItem newItem = new TodoItem();
-                    newItem.Title = "(No items in list)";
+                    TodoItem newItem = new TodoItem {Title = "(No items in list)"};
                     itemList.Add(newItem);
                     ViewBag.ErrorMessage = "AuthorizationRequired";
                     return View(itemList);

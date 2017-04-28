@@ -3,17 +3,24 @@
 @{
     ViewBag.Title = "To Do List";
 }
+
 <html>
 <body>
-    <h4>Acquire Token Using Client Credentials: </h4>
+    <br />
+    <h5>Scopes</h5>
+<textarea rows="2" cols="50"></textarea>
+    <br />
     <button type="button">Get Application Token</button>
     <br />
-    <h4>Acquire Token Silent: </h4>
+    <br />
     <form action="/action_page.php" method="get">
-        <input type="checkbox" name="refresh" value="forceRefresh">Force Refresh<br /><input />
-        <input type="button" value="Submit" />
+        <input type="checkbox" name="refresh" value="forceRefresh">Force Refresh<br />
+        <button type="button">Acquire Token Silent</button>
     </form>
-
+    <br />
+<h5>Access Token:</h5>
+    <textarea rows="5" cols="60"></textarea>
+<br />
 <br />
     @if (ViewBag.ErrorMessage == null)
     {
