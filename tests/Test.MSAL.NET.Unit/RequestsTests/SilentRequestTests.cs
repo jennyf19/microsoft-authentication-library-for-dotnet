@@ -77,18 +77,18 @@ namespace Test.MSAL.NET.Unit.RequestsTests
                 ClientId = TestConstants.ClientId,
                 Scope = TestConstants.Scope,
                 TokenCache = cache,
-                RequestContext = new RequestContext(Guid.Empty)
+                RequestContext = new RequestContext(Guid.Empty, null)
             };
 
             parameters.User = null;
             try
             {
                 new SilentRequest(parameters, false);
-                Assert.Fail("ArgumentNullException should have been thrown here");
+                Assert.Fail("MsalUiRequiredException should have been thrown here");
             }
-            catch (ArgumentNullException exc)
+            catch (MsalUiRequiredException exc)
             {
-                Assert.AreEqual(exc.ParamName, "User");
+                Assert.AreEqual(exc.ErrorCode, MsalUiRequiredException.UserNullError);
             }
 
             parameters.User = new User()
@@ -125,7 +125,7 @@ namespace Test.MSAL.NET.Unit.RequestsTests
                 ClientId = TestConstants.ClientId,
                 Scope = new[] { "some-scope1", "some-scope2" }.CreateSetFromEnumerable(),
                 TokenCache = cache,
-                RequestContext = new RequestContext(Guid.Empty),
+                RequestContext = new RequestContext(Guid.Empty, null),
                 User = new User()
                 {
                     Identifier = TestConstants.UserIdentifier,
@@ -178,7 +178,7 @@ namespace Test.MSAL.NET.Unit.RequestsTests
                 Scope = new[] { "some-scope1", "some-scope2" }.CreateSetFromEnumerable(),
                 TokenCache = cache,
                 User = new User(),
-                RequestContext = new RequestContext(Guid.Empty)
+                RequestContext = new RequestContext(Guid.Empty, null)
             };
 
             try
@@ -220,7 +220,7 @@ namespace Test.MSAL.NET.Unit.RequestsTests
                 Scope = new[] { "some-scope1", "some-scope2" }.CreateSetFromEnumerable(),
                 TokenCache = cache,
                 User = new User(),
-                RequestContext = new RequestContext(Guid.Empty)
+                RequestContext = new RequestContext(Guid.Empty, null)
             };
             
             try
